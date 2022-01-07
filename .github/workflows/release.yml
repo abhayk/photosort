@@ -1,0 +1,86 @@
+name: release
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+env:
+  BINARY_NAME: photosort
+
+jobs:
+  create-release:
+    name: create-release
+    runs-on: ubuntu-latest
+    outputs: 
+      upload_url: ${{ steps.create-release.outputs.upload_url }}
+      binary_version: ${{ env.BINARY_VERSION }}
+    steps:
+      - name: Get the release version from the tag
+        shell: bash
+        if: env.BINARY_VERSION == ''
+        run: |
+          echo "BINARY_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          
+      - name: Create Github release
+        id: create-release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.BINARY_VERSION }}
+          release_name: ${{ env.BINARY_VERSION   }}
+
+  build-release:
+    name: build-release
+    needs: ['create-release']
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [linux, macos, windows]
+        include:
+          - build: linux
+            os: ubuntu-latest
+          - build: macos
+            os: macos-latest
+          - build: windows
+            os: windows-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build release binary
+        run: cargo build --verbose --release
+
+      - name: Strip release binary (linux and macos)
+        if: matrix.build == 'linux' || matrix.build == 'macos'
+        run: strip "target/release/${{ env.BINARY_NAME }}"
+
+      - name: Build archive
+        shell: bash
+        run: |
+          staging="${{ env.BINARY_NAME }}-${{ needs.create-release.outputs.binary_version }}-${{ matrix.build }}"
+          mkdir -p "$staging"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp "target/release/${{ env.BINARY_NAME }}.exe" "$staging/"
+            7z a "$staging.zip" "$staging"
+            echo "ASSET=$staging.zip" >> $GITHUB_ENV
+          else
+            cp "target/release/${{ env.BINARY_NAME }}" "$staging/"
+            tar czf "$staging.tar.gz" "$staging"
+            echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
+          fi
+      - name: Upload release
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_name: ${{ env.ASSET }}
+          asset_path: ${{ env.ASSET }}
+          asset_content_type: application/octet-stream
