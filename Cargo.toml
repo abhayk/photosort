@@ -1,0 +1,28 @@
+[package]
+name = "photosort"
+version = "0.1.0"
+authors = ["Abhay Krishnan <abhay.krishnan.dev@gmail.com>"]
+description = """
+photosort is a tool used to sort photos into a target directory
+based on their exif timestamp. 
+"""
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "3.0.4", features = ["derive"] }
+walkdir = "2.3.2"
+chrono = "0.4.19"
+anyhow = "1.0.52"
+num-traits = "0.2.14"
+kamadak-exif = "0.5.4"
+bytesize = "1.1.0"
+humantime = "2.1.0"
+colored = "2.0.0"
+
+[dev-dependencies]
+assert_cmd = "2.0.2"
+assert_fs = "1.0.6"
+predicates = "2.1.0"
+filetime = "0.2.15"
