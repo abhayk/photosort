@@ -146,7 +146,7 @@ fn strip_timestamp_from_summary(summary: Summary) -> String {
     summary
         .display()
         .lines()
-        .skip(2)
+        .skip(3)
         .collect::<Vec<&str>>()
         .join("\n")
 }

@@ -1,4 +1,3 @@
-use std::fmt::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -57,73 +56,55 @@ impl Summary {
     }
 
     pub fn display(&self) -> String {
-        let mut display: String = "\n".to_string();
-        writeln!(
-            display,
+        let mut messages = Vec::new();
+        messages.push("\n".to_string());
+        messages.push(format!(
             "{} in {}",
             "Completed".green(),
             humantime::format_duration(self.duration)
-        )
-        .unwrap();
-        writeln!(
-            display,
+        ));
+        messages.push(format!(
             "{} {} files totalling {}",
             "Copied".green(),
             self.copy_count,
             bytesize::to_string(self.copied_bytes, true)
-        )
-        .unwrap();
-        if self.skipped_count > 0 {
-            writeln!(
-                display,
-                "{} copying {} files since they were already present at the target",
-                "Skipped".cyan(),
-                self.skipped_count
-            )
-            .unwrap();
-        }
-        if self.exif_error_count > 0 {
-            writeln!(display,
-                "{} reading the exif data for {} files. They were copied using the file modified time - ", 
-                "Error".yellow(), 
-                self.exif_error_count)
-            .unwrap();
-            for path in &self.exif_errored_files {
-                writeln!(display, "{}", path.display()).unwrap();
-            }
-        }
-        if self.duplicate_count > 0 {
-            writeln!(
-                display,
-                "{} copying {} files since they were present at the target but was of a different size - ", "Skipped".red(),
-                self.duplicate_count
-            )
-            .unwrap();
-            for path in &self.duplicate_files {
-                writeln!(display, "{}", path.display()).unwrap();
-            }
-        }
+        ));
         if self.scan_error_count > 0 {
-            writeln!(
-                display,
+            messages.push(format!(
                 "{} to scan {} files.",
                 "Failed".red(),
                 self.scan_error_count
-            )
-            .unwrap();
+            ));
+        }
+        if self.skipped_count > 0 {
+            messages.push(format!(
+                "{} copying {} files since they were already present at the target",
+                "Skipped".cyan(),
+                self.skipped_count
+            ));
+        }
+        if self.duplicate_count > 0 {
+            messages.push(format!("{} copying {} files since they were present at the target but was of a different size - ", "Skipped".red(), self.duplicate_count));
+            for path in &self.duplicate_files {
+                messages.push(path.display().to_string());
+            }
         }
         if self.error_count > 0 {
-            writeln!(
-                display,
+            messages.push(format!(
                 "{} to copy {} files. The following files were not copied - ",
                 "Failed".red(),
                 self.error_count
-            )
-            .unwrap();
+            ));
             for path in &self.errored_files {
-                writeln!(display, "{}", path.display()).unwrap();
+                messages.push(path.display().to_string());
             }
         }
-        display
+        if self.exif_error_count > 0 {
+            messages.push(format!("{} reading the exif data for {} files. They were copied using the file modified time - ", "Error".yellow(), self.exif_error_count));
+            for path in &self.exif_errored_files {
+                messages.push(path.display().to_string());
+            }
+        }
+        messages.join("\n")
     }
 }
