@@ -22,8 +22,8 @@ fn cli_test() -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = assert_fs::TempDir::new()?;
 
     let mut cmd = Command::cargo_bin("photosort")?;
-    cmd.arg("--source-path").arg("tests/data");
-    cmd.arg("--target-path").arg(temp_dir.path());
+    cmd.arg("--source-dir").arg("tests/data");
+    cmd.arg("--target-dir").arg(temp_dir.path());
 
     let expected_summary = Summary {
         scan_error_count: 0,
@@ -35,6 +35,8 @@ fn cli_test() -> Result<(), Box<dyn std::error::Error>> {
         duration: Duration::new(0, 0),
         duplicate_files: Vec::new(),
         errored_files: Vec::new(),
+        exif_error_count: 0,
+        exif_errored_files: Vec::new(),
     };
 
     cmd.assert()
@@ -68,6 +70,8 @@ fn cli_test() -> Result<(), Box<dyn std::error::Error>> {
         duration: Duration::new(0, 0),
         duplicate_files: Vec::new(),
         errored_files: Vec::new(),
+        exif_error_count: 0,
+        exif_errored_files: Vec::new(),
     };
 
     // run the same command again. all files should get skipped.
@@ -91,8 +95,8 @@ fn cli_test() -> Result<(), Box<dyn std::error::Error>> {
     set_default_modified_time(file.path().to_path_buf())?;
 
     let mut cmd = Command::cargo_bin("photosort")?;
-    cmd.arg("--source-path").arg(temp_source.path());
-    cmd.arg("--target-path").arg(temp_dir.path());
+    cmd.arg("--source-dir").arg(temp_source.path());
+    cmd.arg("--target-dir").arg(temp_dir.path());
 
     let expected_summary_duplicate_file = Summary {
         scan_error_count: 0,
@@ -104,6 +108,8 @@ fn cli_test() -> Result<(), Box<dyn std::error::Error>> {
         duration: Duration::new(0, 0),
         duplicate_files: Vec::new(),
         errored_files: Vec::new(),
+        exif_error_count: 0,
+        exif_errored_files: Vec::new(),
     };
 
     cmd.assert()

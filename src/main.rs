@@ -19,26 +19,26 @@ use num_traits::cast::FromPrimitive;
 #[clap(version, about)]
 struct Args {
     #[clap(short, long, parse(from_os_str))]
-    source_path: PathBuf,
+    source_dir: PathBuf,
 
     #[clap(short, long, parse(from_os_str))]
-    target_path: PathBuf,
+    target_dir: PathBuf,
 }
 
-static EXIF_COMPATIBLE_EXTENSIONS: [&str; 2] = ["jpg", "jpeg"];
+static EXIF_COMPATIBLE_EXTENSIONS: [&str; 4] = ["jpg", "jpeg", "png", "tiff"];
 
 fn main() {
     let args = Args::parse();
-    if !args.source_path.exists() || !args.source_path.is_dir() {
+    if !args.source_dir.exists() || !args.source_dir.is_dir() {
         eprintln!("The source path is invalid. Please make sure it exists and is a directory.");
         std::process::exit(1);
     }
-    if !args.target_path.exists() || !args.target_path.is_dir() {
+    if !args.target_dir.exists() || !args.target_dir.is_dir() {
         eprintln!("The target path is invalid. Please make sure it exists and is a directory.");
         std::process::exit(1);
     }
 
-    let stats = copy_files(args.source_path, args.target_path);
+    let stats = copy_files(args.source_dir, args.target_dir);
     println!("{}", stats.display());
 }
 
@@ -65,9 +65,15 @@ fn copy_files(source_path: PathBuf, target_path: PathBuf) -> Summary {
             continue;
         }
 
-        // get the file timestamp preferably from the exif data
-        let file_date = match get_file_date(&entry) {
-            Ok(file_date) => file_date,
+        // get the date of the file from the exif or the metadata
+        let (file_date, exif_error) = get_file_date(&entry);
+        let file_date = match file_date {
+            Ok(file_date) => {
+                if exif_error {
+                    summary.mark_exif_error(entry.clone().into_path());
+                }
+                file_date
+            }
             Err(err) => {
                 eprintln!(
                     "{} while reading the file date for the file {} - [{}]",
@@ -122,7 +128,8 @@ fn copy_files(source_path: PathBuf, target_path: PathBuf) -> Summary {
                 .expect("Error writing to stdout");
                 summary.mark_skipped();
             } else {
-                eprintln!("A file with the same name but a different size exists at the target. This file would be skipped for copying- {}", entry.path().display());
+                eprintln!("A file with the same name but a different size exists at the target {}. This file would be skipped for copying - {}", 
+                    target_path.parent().unwrap().display(), entry.path().display());
                 summary.mark_duplicate(entry.into_path());
             }
             continue;
@@ -186,11 +193,13 @@ fn get_target_path(entry: &DirEntry, file_date: NaiveDate, target_root: &Path) -
     final_path
 }
 
-fn get_file_date(entry: &DirEntry) -> Result<NaiveDate> {
+fn get_file_date(entry: &DirEntry) -> (Result<NaiveDate>, bool) {
+    let mut exif_error = false;
     if exif_compatible_extension(entry) {
         match get_date_from_exif(entry) {
-            Ok(date) => return Ok(date),
+            Ok(date) => return (Ok(date), exif_error),
             Err(err) => {
+                exif_error = true;
                 eprintln!(
                     "{} Could not read exif from the file {} - [{}]. Will default to file modified time.", "Warning.".yellow(),
                     entry.path().display(),
@@ -199,7 +208,7 @@ fn get_file_date(entry: &DirEntry) -> Result<NaiveDate> {
             }
         };
     }
-    get_date_from_file(entry)
+    (get_date_from_file(entry), exif_error)
 }
 
 fn get_date_from_file(entry: &DirEntry) -> Result<NaiveDate> {

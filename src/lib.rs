@@ -2,7 +2,6 @@ use std::fmt::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use bytesize::ByteSize;
 use colored::Colorize;
 
 #[derive(Default)]
@@ -11,11 +10,13 @@ pub struct Summary {
     pub error_count: u32,
     pub skipped_count: u32,
     pub duplicate_count: u32,
+    pub exif_error_count: u32,
     pub copy_count: u32,
     pub copied_bytes: u64,
     pub duration: Duration,
     pub errored_files: Vec<PathBuf>,
     pub duplicate_files: Vec<PathBuf>,
+    pub exif_errored_files: Vec<PathBuf>,
 }
 
 impl Summary {
@@ -41,6 +42,11 @@ impl Summary {
         self.duplicate_files.push(path);
     }
 
+    pub fn mark_exif_error(&mut self, path: PathBuf) {
+        self.exif_error_count += 1;
+        self.exif_errored_files.push(path);
+    }
+
     pub fn mark_copied(&mut self, len: u64) {
         self.copy_count += 1;
         self.copied_bytes += len;
@@ -64,7 +70,7 @@ impl Summary {
             "{} {} files totalling {}",
             "Copied".green(),
             self.copy_count,
-            ByteSize(self.copied_bytes)
+            bytesize::to_string(self.copied_bytes, true)
         )
         .unwrap();
         if self.skipped_count > 0 {
@@ -75,6 +81,16 @@ impl Summary {
                 self.skipped_count
             )
             .unwrap();
+        }
+        if self.exif_error_count > 0 {
+            writeln!(display,
+                "{} reading the exif data for {} files. They were copied using the file modified time - ", 
+                "Error".yellow(), 
+                self.exif_error_count)
+            .unwrap();
+            for path in &self.exif_errored_files {
+                writeln!(display, "{}", path.display()).unwrap();
+            }
         }
         if self.duplicate_count > 0 {
             writeln!(
